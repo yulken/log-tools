@@ -16,6 +16,12 @@ type LogPattern struct {
 	Layout string
 }
 
+type Input struct {
+	Start  time.Time
+	End    time.Time
+	Source io.Reader
+}
+
 var patterns = []LogPattern{
 	{regexp.MustCompile(`([A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}\.\d+)`), "Jan _2 15:04:05.000000"},
 	{regexp.MustCompile(`(\d{4}[-/]\d{2}[-/]\d{2} \d{2}:\d{2}:\d{2})`), "2006/01/02 15:04:05"},
@@ -33,26 +39,9 @@ func main() {
 
 	const flagLayout = "2006-01-02"
 
-	inputPtr := flag.String("in", "", "input file")
-	startPtr := flag.String("start", now.AddDate(0, 0, -7).Format(flagLayout), "start")
-	endPtr := flag.String("end", now.Format(flagLayout), "end")
-	flag.Parse()
+	input := flagValidations()
 
-	var inputSource io.Reader = os.Stdin
-	if *inputPtr != "" {
-		file, err := os.Open(*inputPtr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		defer file.Close()
-		inputSource = file
-	}
-
-	startTime, _ := time.ParseInLocation(flagLayout, *startPtr, location)
-	endTime, _ := time.ParseInLocation(flagLayout, *endPtr, location)
-
-	scanner := bufio.NewScanner(inputSource)
+	scanner := bufio.NewScanner(input.Source)
 	writer := bufio.NewWriter(os.Stdout)
 	defer writer.Flush()
 
@@ -68,7 +57,7 @@ func main() {
 		rawTimeMatch, foundTime, foundTS := findPattern(content, now)
 
 		if foundTS {
-			if foundTime.Before(startTime) || foundTime.After(endTime) {
+			if foundTime.Before(input.Start) || foundTime.After(input.End) {
 				continue
 			}
 			shortTime := foundTime.Format("060102150405")
@@ -80,6 +69,60 @@ func main() {
 		}
 
 		fmt.Fprintf(writer, "%s:%s\n", fullPath, content)
+	}
+}
+
+func flagValidations() Input {
+	const flagLayout = "2006-01-02"
+	location := time.Local
+	now := time.Now().In(location)
+
+	inputPtr := flag.String("in", "", "input file path")
+	startPtr := flag.String("start", now.AddDate(0, 0, -7).Format(flagLayout), "start")
+	endPtr := flag.String("end", now.AddDate(0, 0, 1).Format(flagLayout), "end")
+	flag.Parse()
+
+	startTime, err := time.ParseInLocation(flagLayout, *startPtr, location)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid start date '%s'. Expected format: YYYY-MM-DD\n", *startPtr)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	endTime, err := time.ParseInLocation(flagLayout, *endPtr, location)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid end date '%s'. Expected format: YYYY-MM-DD\n", *endPtr)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if startTime.After(endTime) {
+		fmt.Fprintf(os.Stderr, "Error: start date cannot be after end date (-start: %s, -end: %s)\n", *startPtr, *endPtr)
+		os.Exit(1)
+	}
+
+	var inputSource io.Reader = os.Stdin
+	if *inputPtr != "" {
+		file, err := os.Open(*inputPtr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening input file: %v\n", err)
+			os.Exit(1)
+		}
+		defer file.Close()
+		inputSource = file
+	} else {
+		stat, _ := os.Stdin.Stat()
+		if (stat.Mode() & os.ModeCharDevice) != 0 {
+			fmt.Fprintf(os.Stderr, "Error: no input provided. Please specify an input file using -in or pipe data into Stdin\n")
+			flag.Usage()
+			os.Exit(1)
+		}
+	}
+
+	return Input{
+		Start:  startTime,
+		End:    endTime,
+		Source: inputSource,
 	}
 }
 
