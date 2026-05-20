@@ -8,9 +8,7 @@ A collection of high-performance Go utilities designed to filter, summarize, and
 | :--- | :--- |
 | [**log-filter**](./log-filter) | Filters logs by date/time range and normalizes timestamps. |
 | [**summarizer**](./summarizer) | Groups logs into patterns, masking IDs/UUIDs to find frequent events. |
-| [**log-tree**](./log-tree) | Visualizes file paths in a tree structure (best used with `grep -r`). |
-| **json-summarize** | Collapses large JSON arrays to provide a structural overview. |
-| **unpack-sb** | Automates the extraction of nested ZIP and TXZ archives in node structures. |
+| [**log-tree**](./log-tree) | Visualizes file paths in a tree structure. |
 
 ## Important Notes
 
