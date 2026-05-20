@@ -30,7 +30,7 @@ A collection of high-performance Go utilities designed to filter, summarize, and
 Ensure you have Go 1.24+ installed. You can build all tools using:
 
 ```bash
-go build -o bin/ ./...
+make <toolname>
 ```
 
 ## Typical Workflow
