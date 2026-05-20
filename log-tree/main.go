@@ -7,8 +7,11 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 )
+
+var osExit = os.Exit
 
 type Node struct {
 	Children map[string]*Node
@@ -30,14 +33,18 @@ func main() {
 		file, err := os.Open(*inputPtr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			osExit(1)
 		}
 		defer file.Close()
 		inputSource = file
 	}
 
+	processLogs(inputSource, os.Stdout)
+}
+
+func processLogs(r io.Reader, w io.Writer) {
 	root := NewNode()
-	scanner := bufio.NewScanner(inputSource)
+	scanner := bufio.NewScanner(r)
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 20*1024*1024)
 
@@ -71,7 +78,7 @@ func main() {
 		current.Logs = append(current.Logs, content)
 	}
 
-	writer := bufio.NewWriter(os.Stdout)
+	writer := bufio.NewWriter(w)
 	renderTree(writer, root, "", "")
 	writer.Flush()
 }
@@ -86,8 +93,14 @@ func renderTree(w *bufio.Writer, node *Node, name string, indent string) {
 		newIndent += "  "
 	}
 
-	for childName, childNode := range node.Children {
-		renderTree(w, childNode, childName, newIndent)
+	children := make([]string, 0, len(node.Children))
+	for k := range node.Children {
+		children = append(children, k)
+	}
+	sort.Strings(children)
+
+	for _, childName := range children {
+		renderTree(w, node.Children[childName], childName, newIndent)
 	}
 
 	for _, logLine := range node.Logs {

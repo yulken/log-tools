@@ -9,7 +9,10 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
+
+var osExit = os.Exit
 
 type Entry struct {
 	Text  string
@@ -28,6 +31,7 @@ type Input struct {
 	minOccurrences int
 	groupPatterns  bool
 	source         io.Reader
+	cutoffDate     string
 }
 
 var (
@@ -54,13 +58,26 @@ func validateFlags() Input {
 	inputPtr := flag.String("in", "", "Input file path (Optional, defaults to Stdin/Pipe)")
 	minPtr := flag.Int("min", 2, "Minimum number of occurrences")
 	maskPtr := flag.Bool("mask", false, "Group patterns together (e.g., IDs, Dates)")
+	cutoffPtr := flag.String("cutoff", "", "Ignore patterns that stopped occurring before this date (Format: YYYY-MM-DD)")
 
 	flag.Parse()
 
 	if *minPtr < 1 {
 		fmt.Fprintf(os.Stderr, "Error: invalid -min value (%d). Minimum occurrences must be at least 1\n", *minPtr)
-		flag.Usage()
-		os.Exit(1)
+		flag.CommandLine.Usage()
+		osExit(1)
+	}
+
+	const dateLayout = "2006-01-02"
+	var cutoffTS string
+
+	if *cutoffPtr != "" {
+		t, err := time.Parse(dateLayout, *cutoffPtr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: invalid -cutoff format '%s'. Expected: YYYY-MM-DD\n", *cutoffPtr)
+			osExit(1)
+		}
+		cutoffTS = t.Format("060102") + "000000"
 	}
 
 	var inputSource io.Reader = os.Stdin
@@ -68,16 +85,15 @@ func validateFlags() Input {
 		file, err := os.Open(*inputPtr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to open input file '%s': %v\n", *inputPtr, err)
-			os.Exit(1)
+			osExit(1)
 		}
-		defer file.Close()
 		inputSource = file
 	} else {
 		stat, _ := os.Stdin.Stat()
 		if (stat.Mode() & os.ModeCharDevice) != 0 {
 			fmt.Fprintf(os.Stderr, "Error: no input provided. Please specify an input file using -in or pipe data into Stdin\n")
-			flag.Usage()
-			os.Exit(1)
+			flag.CommandLine.Usage()
+			osExit(1)
 		}
 	}
 
@@ -85,11 +101,16 @@ func validateFlags() Input {
 		minOccurrences: *minPtr,
 		groupPatterns:  *maskPtr,
 		source:         inputSource,
+		cutoffDate:     cutoffTS,
 	}
 }
 
 func main() {
 	input := validateFlags()
+	processLogs(input, os.Stdout)
+}
+
+func processLogs(input Input, out io.Writer) {
 	counts := make(map[string]patternStat)
 	totalProcessed := 0
 	scanner := bufio.NewScanner(input.source)
@@ -122,6 +143,17 @@ func main() {
 	var summary []Entry
 	for pat, stat := range counts {
 		if stat.count >= input.minOccurrences {
+
+			if input.cutoffDate != "" {
+				if stat.last != "" {
+					if stat.last < input.cutoffDate {
+						continue
+					}
+				} else {
+					continue
+				}
+			}
+
 			summary = append(summary, Entry{
 				Text:  pat,
 				Count: stat.count,
@@ -135,21 +167,19 @@ func main() {
 		return summary[i].Count > summary[j].Count
 	})
 
-	writer := bufio.NewWriter(os.Stdout)
+	writer := bufio.NewWriter(out)
 
 	for _, entry := range summary {
-		// Se não encontrou nenhuma data/timestamp na linha, exibe de forma limpa
 		timeRange := "No Date"
 		if entry.First != "" || entry.Last != "" {
 			timeRange = fmt.Sprintf("%s -> %s", entry.First, entry.Last)
 		}
-
-		writer.WriteString(fmt.Sprintf("[%d] [%s]: %s\n", entry.Count, timeRange, entry.Text))
+		fmt.Fprintf(writer, "[%d] [%s]: %s\n", entry.Count, timeRange, entry.Text)
 	}
 
-	writer.WriteString("\n" + strings.Repeat("-", 40) + "\n")
-	writer.WriteString(fmt.Sprintf("%d summarized lines\n", totalProcessed))
-	writer.WriteString(fmt.Sprintf("%d unique patterns\n", len(counts)))
-	writer.WriteString(strings.Repeat("-", 40) + "\n")
+	fmt.Fprintln(writer, "\n"+strings.Repeat("-", 40))
+	fmt.Fprintf(writer, "%d summarized lines\n", totalProcessed)
+	fmt.Fprintf(writer, "%d unique patterns\n", len(counts))
+	fmt.Fprintln(writer, strings.Repeat("-", 40))
 	writer.Flush()
 }
