@@ -5,7 +5,7 @@ A utility to filter log lines based on a specific time range. It automatically d
 ## Usage
 
 ```bash
-./log-filter [flags]
+./ts-handler [flags]
 ```
 
 ### Flags
@@ -18,12 +18,12 @@ A utility to filter log lines based on a specific time range. It automatically d
 
 **Filter a file for a specific range:**
 ```bash
-./log-filter -in system.log -start 2024-05-01 -end 2024-05-15
+./ts-handler -in system.log -start 2024-05-01 -end 2024-05-15
 ```
 
 **Filtering piped input:**
 ```bash
-cat app.log | ./log-filter -start 2024-05-20
+cat app.log | ./ts-handler -start 2024-05-20
 ```
 
 ## Features

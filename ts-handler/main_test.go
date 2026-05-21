@@ -112,7 +112,7 @@ func setupTestFlags(args []string) (func(), *bytes.Buffer) {
 	oldStderr := os.Stderr
 	oldStdin := os.Stdin
 
-	os.Args = append([]string{"log-filter"}, args...)
+	os.Args = append([]string{"ts-handler"}, args...)
 
 	rIn, wIn, _ := os.Pipe()
 	os.Stdin = rIn
