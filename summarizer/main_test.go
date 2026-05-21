@@ -60,9 +60,14 @@ func TestNormalize(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"user-550e8400-e29b-41d4-a716-446655440000 logged in", "user-<REP> logged in"},
-		{"task 1234567890abcdef1234567890abcdef failed", "task <REP> failed"},
-		{"process pid=1234 is running", "process <REP> is running"},
+		{"user-550e8400-e29b-41d4-a716-446655440000 logged in", "user-<?> logged in"},
+		{"task 1234567890abcdef1234567890abcdef failed", "task <?> failed"},
+		{"process pid=1234 is running", "process <?> is running"},
+		{"replica pvc-550e8400-e29b-41d4-a716-446655440000-r-a1b2c3", "replica <LH-REP>"},
+		{"engine pvc-550e8400-e29b-41d4-a716-446655440000-e-d4e5f6", "engine <LH-E>"},
+		{"volume pvc-550e8400-e29b-41d4-a716-446655440000 status", "volume <PVC> status"},
+		{"connection from 192.168.1.100:5432", "connection from <IP:PORT>"},
+		{"host 8.8.4.4 is up", "host <IP> is up"},
 	}
 	for _, tt := range tests {
 		if got := normalize(tt.input); got != tt.expected {

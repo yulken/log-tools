@@ -35,10 +35,15 @@ type Input struct {
 }
 
 var (
-	reTS     = regexp.MustCompile(`\d{12}`)
-	reHashes = regexp.MustCompile(`[a-f0-9]{32,64}`)
-	rePIDs   = regexp.MustCompile(`pid=\d+|uid=\d+|\d{4,}`)
-	reUUID   = regexp.MustCompile(`[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}`)
+	reTS              = regexp.MustCompile(`\d{12}`)
+	reHashes          = regexp.MustCompile(`[a-f0-9]{32,64}`)
+	rePIDs            = regexp.MustCompile(`pid=\d+|uid=\d+|\d{4,}`)
+	reUUID            = regexp.MustCompile(`[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}`)
+	reLonghornReplica = regexp.MustCompile(`pvc-[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}-r-[a-f0-9]+`)
+	reLonghornEngine  = regexp.MustCompile(`pvc-[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}-e-[a-f0-9]+`)
+	reLonghornPVC     = regexp.MustCompile(`pvc-[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}`)
+	reIPPort          = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+`)
+	reIP              = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
 )
 
 func extractAndMaskTS(line string) (string, string) {
@@ -48,9 +53,14 @@ func extractAndMaskTS(line string) (string, string) {
 }
 
 func normalize(line string) string {
-	line = reUUID.ReplaceAllString(line, "<REP>")
-	line = reHashes.ReplaceAllString(line, "<REP>")
-	line = rePIDs.ReplaceAllString(line, "<REP>")
+	line = reLonghornReplica.ReplaceAllString(line, "<LH-REP>")
+	line = reLonghornEngine.ReplaceAllString(line, "<LH-E>")
+	line = reLonghornPVC.ReplaceAllString(line, "<PVC>")
+	line = reIPPort.ReplaceAllString(line, "<IP:PORT>")
+	line = reIP.ReplaceAllString(line, "<IP>")
+	line = reUUID.ReplaceAllString(line, "<?>")
+	line = reHashes.ReplaceAllString(line, "<?>")
+	line = rePIDs.ReplaceAllString(line, "<?>")
 	return line
 }
 
